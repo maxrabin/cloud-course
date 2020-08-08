@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: MadeInJLM 2020 Cloud Computing series
+
+Parameters:
+  WebsiteDomainName:
+    Type: String
+    Description: Website Domain Name
+
+Resources:
+  WebsiteBucket:
+    DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref WebsiteDomainName
