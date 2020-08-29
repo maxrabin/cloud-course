@@ -1,0 +1,13 @@
+<input>
+<button>Submit</button>
+<script>
+document.querySelector('button').onclick = async (e) => {
+    const val = document.querySelector('input').value;
+    const api = 'https://tm1yp8y2v8.execute-api.eu-west-1.amazonaws.com/Prod/update'
+    result = await fetch(api, {
+        method: "POST",
+        body: val,
+        mode: 'no-cors',
+    });
+}
+</script>

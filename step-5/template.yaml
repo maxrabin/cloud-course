@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Description: MadeInJLM 2020 Cloud Computing series
+
+Parameters:
+  WebsiteDomainName:
+    Type: String
+    Description: Website Domain Name
+
+Resources:
+  WebsiteBucket:
+    DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref WebsiteDomainName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${WebsiteBucket}/*'
+
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda-src/
+      Description: A demo API that does stuff
+      FunctionName: MyLambdaFunction
+      Handler: lambda-code.handler
+      MemorySize: 128
+      Runtime: nodejs12.x
+      Timeout: 3
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ip-address
+            Method: get
+
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt WebsiteBucket.WebsiteURL
+    Description: URL for website hosted on S3
+  HelloWorldApi:
+    Description: "API Gateway endpoint URL for Prod stage for our function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/ip-address"
