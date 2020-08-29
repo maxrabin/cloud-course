@@ -35,3 +35,18 @@ file in each step will describe what is added to that step, not the project as a
    on the S3 bucket
 * Upload an HTML file with whatever you want, maybe an "about me" page or something but it doesn't matter what
 
+## Lesson 2
+* [Create a Lambda Function](https://docs.aws.amazon.com/lambda/latest/dg/getting-started-create-function.html)
+   that returns Hello World in any programming language you prefer in the Console
+* Configure the Test event and run a test
+* [Install the Serverless Application Model (SAM) Command Line Interface (CLI)](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
+* Re-create the Hello World function in a SAM template
+* Create an API that returns a JSON object that contains all of the query string parameters in the request.
+   For example a request to your-api.com/method?a=b&c=d would return {"a":"b","c:"d"}
+* [Create a DynamoDB Table](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/getting-started-step-1.html)
+   with a Primary Partition Key
+* Add some rows to the table
+* Scan the table in the Console, then CLI, then with code using your favorite SDK
+* Create a DynamoDB Table with a Partition Key and Sort Key
+* Add some rows to the table with at least 2 values in the Partition Key
+* Query for different values in the partition key
