@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: MadeInJLM 2020 Cloud Computing series
+
+Parameters:
+  WebsiteDomainName:
+    Type: String
+    Description: Website Domain Name
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  #VPCId:
+  #  Type: AWS::EC2::VPC::Id
+  #  Description: VPC ID
+  #SubnetIds:
+  #  Type: List<AWS::EC2::Subnet::Id>
+  #  Description: Subnet IDs
+
+Resources:
+  WebsiteBucket:
+    DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref WebsiteDomainName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${WebsiteBucket}/*'
+
+  IamInstanceRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  IamInstanceProfile: 
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Path: "/"
+      Roles: 
+        - !Ref IamInstanceRole 
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref IamInstanceProfile
+      InstanceType: t2.micro
+  
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt WebsiteBucket.WebsiteURL
+    Description: URL for website hosted on S3
+  EC2InstanceId:
+    Value: !Ref EC2Instance
+    Description: The ID of the EC2 Instance
