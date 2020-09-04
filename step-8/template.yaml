@@ -70,12 +70,14 @@ Resources:
           pip3.8 install Flask
           cd /root/
           cat << EOF > server.py
+          from socket import gethostname
           from flask import Flask, request
+
           app = Flask(__name__)
           
           @app.route('/ip-address')
           def ip_address():
-              return request.remote_addr
+              return f"Hello to {request.remote_addr} from hostname {gethostname()}"
 
           EOF
           export FLASK_APP=server.py
