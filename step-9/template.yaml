@@ -61,6 +61,7 @@ Resources:
   MyLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
+      LaunchTemplateName: MyLaunchTemplate
       LaunchTemplateData:
         ImageId: !Ref LatestAmiId
         IamInstanceProfile:
@@ -83,12 +84,15 @@ Resources:
             
             @app.route('/ip-address')
             def ip_address():
-                return f'Hello to {request.remote_addr} from hostname {gethostname()}'
+                remote = request.remote_addr
+                if "X-Forwarded-For" in request.headers:
+                    remote = f'{request.headers["X-Forwarded-For"]} via {remote}'
+                return f'Hello to {remote} from hostname {gethostname()}'
 
             EOF
             export FLASK_APP=server.py
             python3.8 -m flask run --host 0.0.0.0 --port 80 &
-      LaunchTemplateName: MyLaunchTemplate
+
          
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup

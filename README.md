@@ -50,3 +50,10 @@ file in each step will describe what is added to that step, not the project as a
 * Create a DynamoDB Table with a Partition Key and Sort Key
 * Add some rows to the table with at least 2 values in the Partition Key
 * Query for different values in the partition key
+
+## Lesson 3
+* Create an EC2 Instance
+* Make sure the Security Group allows inbound traffic on port 80
+* Install your favorite web server with some sort of "hello world" application or an HTML page
+* Create a Launch Template that defines your server configuration
+* Create an AutoScaling Group for your Luanch Template and add/remove instances from your autoscaling group.
