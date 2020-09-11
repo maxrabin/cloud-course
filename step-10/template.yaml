@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: MadeInJLM 2020 Cloud Computing series
+
+Parameters:
+  WebsiteDomainName:
+    Type: String
+    Description: Website Domain Name
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+  SubnetIds:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+
+Resources:
+  WebsiteBucket:
+    DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref WebsiteDomainName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${WebsiteBucket}/*'
+
+  IamInstanceRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  IamInstanceProfile: 
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Path: "/"
+      Roles: 
+        - !Ref IamInstanceRole 
+
+  MyLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: MyLaunchTemplate
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        IamInstanceProfile:
+          Arn: !GetAtt IamInstanceProfile.Arn
+        InstanceType: t2.micro
+        SecurityGroupIds:
+          - !GetAtt InstanceSecurityGroup.GroupId
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash -xe
+            yum update -y
+            amazon-linux-extras install python3.8
+            pip3.8 install Flask
+            cd /root/
+            cat << EOF > server.py
+            from socket import gethostname
+            from flask import Flask, request
+
+            app = Flask(__name__)
+            
+            @app.route('/ip-address')
+            def ip_address():
+                remote = request.remote_addr
+                if "X-Forwarded-For" in request.headers:
+                    remote = f'{request.headers["X-Forwarded-For"]} via {remote}'
+                return f'Hello to {remote} from hostname {gethostname()}'
+
+            EOF
+            export FLASK_APP=server.py
+            python3.8 -m flask run --host 0.0.0.0 --port 80 &
+
+         
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: My EC2 Instance Security Group
+      GroupName: MyEc2Instance
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupName: LoadBalancer
+
+  MyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /ip-address
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 2
+      Name: MyTargetGroup
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+
+  MyLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      Name: MyLoadBalancer
+      SecurityGroups: 
+        - !GetAtt InstanceSecurityGroup.GroupId
+      #SubnetMappings: 
+      #  - SubnetMapping
+      Subnets: !Ref SubnetIds
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      DefaultActions: 
+        - ForwardConfig: 
+            TargetGroups: 
+              - TargetGroupArn: !Ref MyTargetGroup
+          TargetGroupArn: !Ref MyTargetGroup
+          Type: forward
+
+      LoadBalancerArn: !Ref MyLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  LoadBalancerGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Load Balancer Security Group
+      GroupName: LoadBalancer
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+
+  MyASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: "2"
+      MaxSize: "6"
+      DesiredCapacity: "2"
+      HealthCheckGracePeriod: 300
+      TargetGroupARNs:
+        - !Ref MyTargetGroup
+      LaunchTemplate:
+        LaunchTemplateId: !Ref MyLaunchTemplate
+        Version: !GetAtt MyLaunchTemplate.LatestVersionNumber
+      VPCZoneIdentifier: !Ref SubnetIds
+
+  MyDatabaseInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBInstanceIdentifier: cloud-course
+      DBInstanceClass: db.t2.micro
+      Engine: mysql
+      MultiAZ: true
+      PubliclyAccessible: false
+      AllocatedStorage: 10
+      BackupRetentionPeriod: 7
+      MasterUsername: "root"
+      MasterUserPassword: '{{resolve:ssm-secure:/cloud-course/db-password:1}}'
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: MySQL Security Group
+      GroupName: MySQL
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupName: MyEc2Instance
+
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt WebsiteBucket.WebsiteURL
+    Description: URL for website hosted on S3
+  LoadBalancerUrl:
+    Value: !GetAtt MyLoadBalancer.DNSName
+    Description: URL for the Load Balancer

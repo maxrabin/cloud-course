@@ -10,8 +10,5 @@ aws cloudformation deploy \
     --parameter-overrides WebsiteDomainName=$WEBSITE_DOMAIN_NAME \
     --stack-name $STACK_NAME
 
-echo Sync Website Files...
-aws s3 sync frontend s3://$WEBSITE_DOMAIN_NAME/
-
 echo Outputs...
 aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs' --output yaml
